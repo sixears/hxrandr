@@ -1,94 +1,116 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE UnicodeSyntax     #-}
+{-# LANGUAGE UnicodeSyntax #-}
 
-module Single
-  ( MonoSingle( osingle ), Single( single ), filt, filt', ofilt, ofilt' )
-where
+module XRandR
+  ( tests
+  ) where
 
--- base --------------------------------
+import Base1T
 
-import Control.Applicative  ( pure )
-import Data.Either          ( Either )
-import Data.Foldable        ( Foldable( foldr ) )
-import Data.List.NonEmpty   ( NonEmpty( (:|) ) )
-import Data.Maybe           ( Maybe( Just ) )
-import Data.Monoid          ( Monoid )
+import Prelude ( undefined )
 
--- base-unicode-symbols ----------------
+-- fpath -------------------------------
 
-import Data.Monoid.Unicode  ( (⊕) )
+import FPath.Error.FPathError ( AsFPathError )
 
--- containers --------------------------
+-- log-plus ----------------------------
 
-import Data.Set  ( Set, singleton )
+import Log ( Log )
 
--- dlist -------------------------------
+-- logging-effect ----------------------
 
-import Data.DList  ( DList )
+import Control.Monad.Log ( LoggingT, MonadLog, Severity(Notice) )
 
--- mono-traversable --------------------
+-- mockio ------------------------------
 
-import Data.MonoTraversable  ( Element, MonoFoldable, ofoldr )
+import MockIO        ( noMock )
+import MockIO.DoMock ( DoMock, HasDoMock )
 
--- more-unicode ------------------------
+-- mockio-log --------------------------
 
-import Data.MoreUnicode.Bool    ( 𝔹 )
-import Data.MoreUnicode.Monoid  ( ф )
+import MockIO.Log             ( MockIOClass )
+import MockIO.Log.MonadReader ( debug, info )
+
+-- monadio-plus ------------------------
+
+import MonadIO                       ( say )
+import MonadIO.Base                  ( getArgs )
+import MonadIO.Error.CreateProcError ( AsCreateProcError )
+import MonadIO.Error.ProcExitError   ( AsProcExitError )
+
+-- optparse-applicative ----------------
+
+import Options.Applicative             ( Parser )
+import Options.Applicative.Help.Pretty ( empty, vcat )
+
+-- stdmain -----------------------------
+
+import StdMain            ( stdMain )
+import StdMain.UsageError ( AsUsageError, UsageFPProcIOTPError )
+
+-- textual-plus ------------------------
+
+import TextualPlus                         ( parseText, tparse )
+import TextualPlus.Error.TextualParseError ( AsTextualParseError )
+
+-- trifecta ----------------------------
+
+import Text.Trifecta.Result ( Result(Failure, Success) )
+
+-- trifecta-plus -----------------------
+
+import TrifectaPlus ( eiText, tParse', testParse )
+
+------------------------------------------------------------
+--                     local imports                      --
+------------------------------------------------------------
+
+import XRandR.Paths      qualified as Paths
+import XRandR.T.TestData qualified as TestData
+
+import XRandR.Types ( XRandR(XRandR) )
 
 --------------------------------------------------------------------------------
 
-class Single π where
-  single ∷ α → π α
+newtype Options = Options ()
 
-instance Single [] where
-  single x = [x]
+parseOptions ∷ Parser Options
+parseOptions = pure (Options ())
 
-instance Single NonEmpty where
-  single x = x :| []
+----------------------------------------
 
-instance Single Maybe where
-  single = Just
+myMain ∷ (HasCallStack,
+          AsIOError ε, AsFPathError ε, AsUsageError ε, AsCreateProcError ε,
+          AsProcExitError ε, AsTextualParseError ε, Printable ε) ⇒
+         DoMock → Options → LoggingT (Log MockIOClass) (ExceptT ε IO) Word8
+myMain do_mock opts =
+  case tParse' @XRandR TestData.red0T of
+    Failure e → say (eiText e) ⪼ return 10
+    Success x → say x ⪼ return 0
 
-instance Single (Either ω) where
-  single = pure
+----------------------------------------
 
-instance Single Set where
-  single = singleton
+main ∷ MonadIO μ ⇒ μ ()
+main = do
+  let desc = vcat $ [ "manage X screens", empty ]
+  getArgs ≫ stdMain desc parseOptions (myMain @UsageFPProcIOTPError)
 
-instance Single DList where
-  single = pure
+--------------------
 
-------------------------------------------------------------
+tests ∷ TestTree
+tests = testGroup "XRandR" [ testParse TestData.red0T TestData.red0
+                           ]
 
-{- | `MonoSingle` is to `Single` as `MonoFoldable` is to `Foldable`. -}
+--------------------
 
-class MonoSingle π where
-  osingle ∷ Element π → π
+_test ∷ IO ExitCode
+_test = runTestTree tests
 
-------------------------------------------------------------
+--------------------
 
-{- | Generalization of `Data.List.filter` to any type is monoidal, with a
-     `Single` instance. -}
-filt ∷ ∀ ψ π α . (Foldable ψ, Monoid (π α), Single π) ⇒ (α → 𝔹) → ψ α → π α
-filt p = foldr (\ x xs → if p x then single x ⊕ xs else xs) ф
+_tests ∷ 𝕊 → IO ExitCode
+_tests = runTestsP tests
 
-{- | Specialization of `filt` to reap what we sow; return the same container
-     as was given. -}
-filt' ∷ ∀ ψ α . (Foldable ψ, Monoid (ψ α), Single ψ) ⇒ (α → 𝔹) → ψ α → ψ α
-filt' = filt
-
-{- | Application of `filt` to `MonoFoldable`. -}
-ofilt ∷ ∀ ψ π α . (MonoFoldable ψ, Monoid (π α), Single π, α ~ Element ψ) ⇒
-                  (α → 𝔹) → ψ → π α
-ofilt p = ofoldr (\ x xs → if p x then single x ⊕ xs else xs) ф
-
-{- | Specialization of `ofilt` to reap what we sow; return the same container
-     as was given. -}
-ofilt' ∷ ∀ ψ α . (MonoFoldable ψ, Monoid ψ, MonoSingle ψ, α ~ Element ψ) ⇒
-                 (α → 𝔹) → ψ → ψ
-ofilt' p = ofoldr (\ x xs → if p x then osingle x ⊕ xs else xs) ф
-
+_testr ∷ 𝕊 → ℕ → IO ExitCode
+_testr = runTestsReplay tests
 
 -- that's all, folks! ----------------------------------------------------------
