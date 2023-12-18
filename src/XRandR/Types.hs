@@ -1,18 +1,19 @@
 {-# LANGUAGE UnicodeSyntax #-}
 module XRandR.Types
-  ( Connected( Connected, Disconnected )
-  , Device( Device )
-  , Dimensions( Dimensions )
-  , Frequency( Frequency )
-  , IsCurrent( IsCurrent )
-  , IsPreferred( IsPreferred )
-  , ModeLine( ModeLine )
-  , RelativePosition ( Primary )
-  , Resolution( Resolution )
-  , Screen( Screen )
-  , ScreenSize( ScreenSize )
-  , XPosition( XPosition )
-  , XRandR( XRandR )
+  ( Connected(Connected, Disconnected)
+  , Device(Device)
+  , Dimensions(Dimensions)
+  , Frequency(Frequency)
+  , IsCurrent(IsCurrent)
+  , IsPreferred(IsPreferred)
+  , ModeLine(ModeLine)
+  , RelativePosition(Primary)
+  , Resolution(Resolution)
+  , Screen(Screen)
+  , ScreenSize(ScreenSize)
+  , XPosition(XPosition)
+  , XRandR(XRandR)
+--  , tests
   ) where
 
 import Base1T
@@ -37,13 +38,13 @@ import Data.CharSet ( build, singleton, union )
 
 -- parsers -----------------------------
 
-import Text.Parser.Char         ( anyChar, char, digit, newline, oneOfSet, space,
-                                  string )
-import Text.Parser.Combinators  ( Parsing, (<?>), try )
+import Text.Parser.Char        ( anyChar, char, digit, newline, oneOfSet, space,
+                                 string )
+import Text.Parser.Combinators ( Parsing, try, (<?>) )
 
 -- text --------------------------------
 
-import Data.Text  ( intercalate )
+import Data.Text ( intercalate )
 
 -- text-printer ------------------------
 
@@ -58,7 +59,7 @@ import TextualPlus ( TextualPlus(textual') )
 (⩻) ∷ Parsing η ⇒ η α → 𝕊 → η α
 (⩻) = (<?>)
 
-data Connected = Connected | Disconnected deriving (Eq,Show)
+data Connected = Connected | Disconnected deriving (Eq, Show)
 
 instance TextualPlus Connected where
   textual' = string "connected" ⋫ pure Connected
@@ -67,7 +68,7 @@ instance TextualPlus Connected where
 
 ------------------------------------------------------------
 
-data IsCurrent = IsCurrent | IsNotCurrent deriving (Eq,Show)
+data IsCurrent = IsCurrent | IsNotCurrent deriving (Eq, Show)
 
 instance Printable IsCurrent where
   print IsCurrent = P.char '*'
@@ -79,7 +80,7 @@ instance TextualPlus IsCurrent where
 
 ------------------------------------------------------------
 
-data IsPreferred = IsPreferred | IsNotPreferred deriving (Eq,Show)
+data IsPreferred = IsPreferred | IsNotPreferred deriving (Eq, Show)
 
 instance TextualPlus IsPreferred where
   textual' = char '+' ⋫ pure IsPreferred
@@ -91,7 +92,7 @@ instance Printable IsPreferred where
 
 ------------------------------------------------------------
 
-data RelativePosition = Primary deriving (Eq,Show)
+data RelativePosition = Primary deriving (Eq, Show)
 
 instance TextualPlus RelativePosition where
   textual' = string "primary" ⋫ pure Primary ⩻ "RelativePosition"
@@ -99,10 +100,10 @@ instance TextualPlus RelativePosition where
 ------------------------------------------------------------
 
 data XPosition = XPosition { _size :: ScreenSize
-                           , _x     :: ℕ
-                           , _y     :: ℕ
+                           , _x    :: ℕ
+                           , _y    :: ℕ
                            }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance TextualPlus XPosition where
   textual' = let natural = read ⊳ many digit
@@ -117,7 +118,7 @@ data Dimensions = Dimensions { w :: ℕ
                              , h :: ℕ
                                -- ^ in mm
                              }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance TextualPlus Dimensions where
   textual' = let natural = read ⊳ many digit
@@ -130,7 +131,7 @@ instance TextualPlus Dimensions where
 data ScreenSize = ScreenSize { _width  :: ℕ
                              , _height :: ℕ
                              }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance Printable ScreenSize where
   print (ScreenSize w h) = P.text $ [fmt|%dx%d|] w h
@@ -145,7 +146,7 @@ instance TextualPlus ScreenSize where
 data Resolution = Resolution { _resolution_x :: ℕ
                              , _resolution_y :: ℕ
                              }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance TextualPlus Resolution where
   textual' = let natural = read ⊳ many digit
@@ -154,11 +155,11 @@ instance TextualPlus Resolution where
 
 ------------------------------------------------------------
 
-data Frequency = Frequency { _rate        ∷ ℚ
-                           , _isCurrent   ∷ IsCurrent
-                           , _isPreferred ∷ IsPreferred
+data Frequency = Frequency { _rate        :: ℚ
+                           , _isCurrent   :: IsCurrent
+                           , _isPreferred :: IsPreferred
                            }
-               deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance Printable Frequency where
   print (Frequency q c p) = P.text $ [fmt|%5.2f%T%T|] q c p
@@ -176,7 +177,7 @@ instance TextualPlus Frequency where
 data ModeLine = ModeLine { _resolution  :: Resolution
                          , _frequencies :: NonEmpty Frequency
                          }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance TextualPlus ModeLine where
   textual' = ModeLine ⊳ (some space ⋫ textual')
@@ -194,7 +195,14 @@ data Device = Device { -- _connected :: Connected
                      , _dimensions  :: 𝕄 Dimensions
                      , _modelines   :: [ModeLine]
                      }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
+
+mkDevice ∷ 𝕊 → Connected
+         → (𝔼 (𝕄 RelativePosition, 𝕄 XPosition)
+              (𝕄 XPosition, 𝕄 RelativePosition))
+         → 𝕄 Dimensions → [ModeLine] → Device
+mkDevice dn c (𝕷 (rp,xp)) d m = Device dn c rp xp d m
+mkDevice dn c (𝕽 (xp,rp)) d m = Device dn c rp xp d m
 
 instance Printable Device where
   print d = P.string $ show d
@@ -203,14 +211,14 @@ instance TextualPlus Device where
   textual' =
     let (∪) = union
         alphaNumHyphen = oneOfSet $ build isAlphaNum ∪ singleton '-'
-    in Device ⊳ (some alphaNumHyphen ⋪ char ' ') -- device_name
-              ⊵ (textual' ⋪ char ' ')            -- connected
-              ⊵ optional (textual' ⋪ char ' ')   -- position
-              ⊵ optional (textual' ⋪ char ' ')   -- xposition
-              ⋪ string "(normal left inverted right x axis y axis)"
-              ⊵ optional (char ' ' ⋫ textual') ⋪ newline
-              ⊵ many textual'
-              ⩻ "Device"
+    in mkDevice ⊳ (some alphaNumHyphen ⋪ char ' ') -- device_name
+                ⊵ (textual' ⋪ char ' ')            -- connected
+                ⊵ (𝕷 ⊳ optional (textual' ⋪ char ' ')   -- relative position
+                      ⊵ optional (textual' ⋪ char ' '))   -- xposition
+                ⋪ string "(normal left inverted right x axis y axis)"
+                ⊵ optional (char ' ' ⋫ textual') ⋪ newline
+                ⊵ many textual'
+                ⩻ "Device"
 
 ------------------------------------------------------------
 
@@ -220,7 +228,7 @@ data Screen = Screen { _screenid :: ℕ
                      , _maximum  :: ScreenSize
                      , _devices  :: [Device]
                      }
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance Printable Screen where
   print s = P.text $ [fmt|Screen %d (%T < %T < %T)\n%t|]
@@ -241,12 +249,31 @@ instance TextualPlus Screen where
 ------------------------------------------------------------
 
 newtype XRandR = XRandR [Screen]
-  deriving (Eq,Show)
+  deriving (Eq, Show)
 
 instance Printable XRandR where
   print (XRandR ss) = P.text $ intercalate "\n" (toText ⊳ ss)
 
 instance TextualPlus XRandR where
   textual' = XRandR ⊳ some textual'
+
+-- testing ---------------------------------------------------------------------
+
+{-
+tests ∷ TestTree
+tests = testGroup "XRandR" [ testParse TestData.red0T TestData.red0
+                           ]
+
+_test ∷ IO ExitCode
+_test = runTestTree tests
+
+--------------------
+
+_tests ∷ 𝕊 → IO ExitCode
+_tests = runTestsP tests
+
+_testr ∷ 𝕊 → ℕ → IO ExitCode
+_testr = runTestsReplay tests
+-}
 
 -- that's all, folks! ----------------------------------------------------------

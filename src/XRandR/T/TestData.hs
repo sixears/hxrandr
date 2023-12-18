@@ -1,6 +1,6 @@
 {-# LANGUAGE UnicodeSyntax #-}
 module XRandR.T.TestData
-  ( dog0T
+  ( dog0T, dog0
   , dog1T
   , red0
   , red0T
@@ -128,6 +128,33 @@ dog0T = unlines
   , "   640x480       75.00    72.81    59.94    59.93"
   , "HDMI-3 disconnected (normal left inverted right x axis y axis)"
   ]
+
+----------------------------------------
+
+dog0 ∷ XRandR
+dog0 =
+  let
+      ss_1920        = ScreenSize 1920 1200
+      res_1920       = Resolution 1920 1200
+      xpos_1920_0_0  = XPosition ss_1920 0 0
+      freq_59_95_cp  = Frequency (1199%20) IsCurrent IsPreferred
+      modeline_1920  = ModeLine res_1920 (pure freq_59_95_cp)
+      dim_290_180    = Dimensions 290 180
+      eDP1           = Device "eDP1" Connected (𝕵 Primary) (𝕵 xpos_1920_0_0)
+                              (𝕵 dim_290_180) [modeline_1920]
+      empty_dev name = Device name Disconnected 𝕹 𝕹 𝕹 []
+  in  XRandR [ Screen 0 (ScreenSize 8 8) ss_1920 (ScreenSize 32767 32767)
+               [ eDP1
+               , empty_dev "DP1"
+               , empty_dev "DP2"
+               , empty_dev "DP3"
+               , empty_dev "DP4"
+               , empty_dev "DP5"
+               , empty_dev "HDMI1"
+               , empty_dev "VIRTUAL1"
+               ] ]
+
+----------------------------------------
 
 dog1T ∷ 𝕋
 dog1T = unlines

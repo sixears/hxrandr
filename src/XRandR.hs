@@ -98,6 +98,7 @@ main = do
 
 tests ∷ TestTree
 tests = testGroup "XRandR" [ testParse TestData.red0T TestData.red0
+                           , testParse TestData.dog0T TestData.dog0
                            ]
 
 --------------------
